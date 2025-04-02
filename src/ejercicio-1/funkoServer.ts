@@ -14,25 +14,42 @@ class funkoServer {
         console.log(chalk.red("Ha ocurrido un error a la hora de leer el directorio", err.message))
       }
       let user_path = path.join(ruta, usuario)
-      fs.readdir(user_path, (err, user_files) => {
-        if(err) {
-          console.log(chalk.red(`Ha ocurrido un error a la hora de leer el directorio`, err.message))
-        }
-        user_files.forEach(file => {
-          let file_path = path.join(user_path, file)
-          fs.readFile(file_path, 'utf-8', (err, data) => {
-            if (err) {
-              console.log(chalk.red(`Ha ocurrido un error a la hora de leer el fichero ${file}`, err.message))
-            }
-            try {
-              const funkoData = JSON.parse(data);
-              const funko = new Funko(funkoData.id, funkoData.nombre, funkoData.tipo, funkoData.coste);
-              this.lista.push(funko);
-            } catch (error) {
-              console.log(chalk.red(`Error al parsear el fichero ${file}`));
-            }
+      fs.mkdir(user_path, (err) => {
+        fs.readdir(user_path, (err, user_files) => {
+          if(err) {
+            console.log(chalk.red(`Ha ocurrido un error a la hora de leer el directorio`, err.message))
+          }
+          user_files.forEach(file => {
+            let file_path = path.join(user_path, file)
+            fs.readFile(file_path, 'utf-8', (err, data) => {
+              if (err) {
+                console.log(chalk.red(`Ha ocurrido un error a la hora de leer el fichero ${file}`, err.message))
+              }
+              try {
+                const funkoData = JSON.parse(data);
+                const funko = new Funko(funkoData.id, funkoData.nombre, funkoData.tipo, funkoData.coste);
+                this.lista.push(funko);
+              } catch (error) {
+                console.log(chalk.red(`Error al parsear el fichero ${file}`));
+              }
+            })
           })
         })
+      })
+    })
+  }
+
+  guardarDatos(usuario: string) {
+    let camino = `./src/usuarios/${usuario}`
+    this.lista.forEach(funko => {
+      let path_funko = path.join(camino, funko.id.toString() + ".json")
+      console.log(path_funko)
+      fs.writeFile(path_funko, JSON.stringify(funko), (err) => {
+        if (err) {
+          console.log('Ha ocurrido un error a la hora de escribir los funkos')
+          process.exit(1)
+        }
+        console.log(`Se ha escrito el funko ${funko.id}`)
       })
     })
   }
@@ -44,7 +61,6 @@ class funkoServer {
 
     if (index !== -1) {
       return chalk.red("No se puedo agregar el funko. Ya existe")
-      process.exit(1)
     }
 
     this.lista.push(funko)
@@ -53,12 +69,12 @@ class funkoServer {
 
   eliminar(user: string, funko: Funko) {
     this.cargarDatos(user)
+    console.log(this.lista)
 
     let index: number = this.lista.findIndex(a => a.id === funko.id)
 
     if (index === -1) {
       return chalk.red("No se pudo eliminar el funko. No existe")
-      process.exit(1)
     }
 
     this.lista.slice(index, 1)
@@ -105,6 +121,7 @@ const server = net.createServer(socket => {
   socket.on('data', (data) => {
     const mensaje = JSON.parse(data.toString())
     let resultado = ""
+    serverInstance.cargarDatos(mensaje.usuario)
 
     switch(mensaje.comando) {
       case 'add':
@@ -121,6 +138,7 @@ const server = net.createServer(socket => {
         break;
     }
     socket.write(resultado)
+    serverInstance.guardarDatos(mensaje.usuario)
   })
 
   socket.on('end', () => {
@@ -129,5 +147,5 @@ const server = net.createServer(socket => {
 })
 
 server.listen(60300, () => {
-  console.log(chalk.blue("Servidor Funko en ejecución en el puerto 3000"));
+  console.log(chalk.blue("Servidor Funko en ejecución en el puerto 60300"));
 });
